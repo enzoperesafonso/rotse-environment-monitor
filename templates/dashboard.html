@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROTSE-III Namibia Weather Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px 0;
+            border-bottom: 2px solid #3498db;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #3498db;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #2ecc71;
+            margin-left: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .weather-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .weather-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .weather-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(52, 152, 219, 0.3);
+        }
+
+        .weather-card h3 {
+            color: #3498db;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .weather-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+            color: #ffffff;
+        }
+
+        .weather-unit {
+            font-size: 0.9em;
+            color: #bdc3c7;
+        }
+
+        .allsky-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+
+        .allsky-container h3 {
+            color: #3498db;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .allsky-image {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 10px;
+            border: 2px solid #3498db;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .chart-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .chart-card h3 {
+            color: #3498db;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .timestamp {
+            text-align: center;
+            color: #95a5a6;
+            font-size: 0.9em;
+            margin-top: 20px;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .time-selector {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: #ffffff;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+        }
+
+        .time-selector:hover {
+            background: rgba(52, 152, 219, 0.3);
+            border-color: #3498db;
+        }
+
+        .time-selector.active {
+            background: #3498db;
+            border-color: #3498db;
+        }
+
+        .loading {
+            text-align: center;
+            color: #95a5a6;
+            font-style: italic;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .weather-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .charts-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ROTSE-III Namibia Weather Dashboard<span class="status-indicator" id="statusIndicator"></span></h1>
+            <div class="timestamp" id="lastUpdate">Last updated: --</div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="left-panel">
+                <div class="weather-cards">
+                    <div class="weather-card">
+                        <h3>Temperature</h3>
+                        <div class="weather-value" id="temperature">--</div>
+                        <div class="weather-unit">°C</div>
+                    </div>
+                    <div class="weather-card">
+                        <h3>Humidity</h3>
+                        <div class="weather-value" id="humidity">--</div>
+                        <div class="weather-unit">%</div>
+                    </div>
+                    <div class="weather-card">
+                        <h3>Pressure</h3>
+                        <div class="weather-value" id="pressure">--</div>
+                        <div class="weather-unit">hPa</div>
+                    </div>
+                    <div class="weather-card">
+                        <h3>Wind Speed</h3>
+                        <div class="weather-value" id="windspeed">--</div>
+                        <div class="weather-unit">m/s</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="allsky-container">
+                <h3>All-Sky Camera</h3>
+                <img src="/allsky" class="allsky-image" id="allskyImage" alt="All-Sky Camera View">
+                <div class="timestamp" id="allskyTimestamp">Updated every 60 seconds</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="time-selector active" data-hours="6">6 Hours</button>
+            <button class="time-selector" data-hours="12">12 Hours</button>
+            <button class="time-selector" data-hours="24">24 Hours</button>
+            <button class="time-selector" data-hours="72">3 Days</button>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-card">
+                <h3>Temperature Trend</h3>
+                <div class="chart-container">
+                    <canvas id="temperatureChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>Humidity Trend</h3>
+                <div class="chart-container">
+                    <canvas id="humidityChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>Pressure Trend</h3>
+                <div class="chart-container">
+                    <canvas id="pressureChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-card">
+                <h3>Wind Speed Trend</h3>
+                <div class="chart-container">
+                    <canvas id="windChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let temperatureChart, humidityChart, pressureChart, windChart;
+        let currentTimeRange = 6;
+
+        // Initialize charts
+       function initCharts() {
+    const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            x: {
+                type: 'time',
+                time: {
+                    displayFormats: {
+                        hour: 'HH:mm',
+                        day: 'MM/DD'
+                    }
+                },
+                title: {
+                    display: true,
+                    text: 'Time',
+                    color: '#ffffff',
+                    font: {
+                        size: 14
+                    }
+                },
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)'
+                },
+                ticks: {
+                    color: '#ffffff'
+                }
+            },
+            y: {
+                title: {
+                    display: true,
+                    text: 'Value',
+                    color: '#ffffff',
+                    font: {
+                        size: 14
+                    }
+                },
+                grid: {
+                    color: 'rgba(255, 255, 255, 0.1)'
+                },
+                ticks: {
+                    color: '#ffffff'
+                }
+            }
+        }
+    };
+
+    temperatureChart = new Chart(document.getElementById('temperatureChart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Temperature',
+                data: [],
+                borderColor: '#e74c3c',
+                backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            ...baseOptions,
+            scales: {
+                ...baseOptions.scales,
+                y: {
+                    ...baseOptions.scales.y,
+                    title: {
+                        ...baseOptions.scales.y.title,
+                        text: 'Temperature (°C)'
+                    }
+                }
+            }
+        }
+    });
+
+    humidityChart = new Chart(document.getElementById('humidityChart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Humidity',
+                data: [],
+                borderColor: '#3498db',
+                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            ...baseOptions,
+            scales: {
+                ...baseOptions.scales,
+                y: {
+                    ...baseOptions.scales.y,
+                    title: {
+                        ...baseOptions.scales.y.title,
+                        text: 'Humidity (%)'
+                    }
+                }
+            }
+        }
+    });
+
+    pressureChart = new Chart(document.getElementById('pressureChart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Pressure',
+                data: [],
+                borderColor: '#f39c12',
+                backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            ...baseOptions,
+            scales: {
+                ...baseOptions.scales,
+                y: {
+                    ...baseOptions.scales.y,
+                    title: {
+                        ...baseOptions.scales.y.title,
+                        text: 'Pressure (hPa)'
+                    }
+                }
+            }
+        }
+    });
+
+    windChart = new Chart(document.getElementById('windChart'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Wind Speed',
+                data: [],
+                borderColor: '#2ecc71',
+                backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            ...baseOptions,
+            scales: {
+                ...baseOptions.scales,
+                y: {
+                    ...baseOptions.scales.y,
+                    title: {
+                        ...baseOptions.scales.y.title,
+                        text: 'Wind Speed (m/s)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+
+        // Update latest weather data
+        function updateLatestData() {
+            console.log('Fetching latest data...');
+            fetch('/api/latest')
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Latest data received:', data);
+
+                    // Update status indicator
+                    const statusIndicator = document.getElementById('statusIndicator');
+                    if (data.error) {
+                        statusIndicator.style.background = '#e74c3c';
+                        console.error('Data error:', data.error);
+                    } else if (data.temperature !== null || data.humidity !== null || data.pressure !== null || data.windspeed !== null) {
+                        statusIndicator.style.background = '#2ecc71';
+                    } else {
+                        statusIndicator.style.background = '#f39c12';
+                    }
+
+                    // Update values with more detailed logging
+                    const tempElement = document.getElementById('temperature');
+                    const humidityElement = document.getElementById('humidity');
+                    const pressureElement = document.getElementById('pressure');
+                    const windspeedElement = document.getElementById('windspeed');
+
+                    console.log('Updating elements with values:', {
+                        temperature: data.temperature,
+                        humidity: data.humidity,
+                        pressure: data.pressure,
+                        windspeed: data.windspeed
+                    });
+
+                    tempElement.textContent = data.temperature !== null ? data.temperature.toFixed(1) : '--';
+                    humidityElement.textContent = data.humidity !== null ? data.humidity.toFixed(1) : '--';
+                    pressureElement.textContent = data.pressure !== null ? data.pressure.toFixed(1) : '--';
+                    windspeedElement.textContent = data.windspeed !== null ? data.windspeed.toFixed(1) : '--';
+
+                    console.log('Updated display values:', {
+                        temperature: tempElement.textContent,
+                        humidity: humidityElement.textContent,
+                        pressure: pressureElement.textContent,
+                        windspeed: windspeedElement.textContent
+                    });
+
+                    if (data.timestamp) {
+                        const timestamp = new Date(data.timestamp);
+                        document.getElementById('lastUpdate').textContent = `Last updated: ${timestamp.toLocaleString()}`;
+                    } else {
+                        document.getElementById('lastUpdate').textContent = data.error || 'No data available';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching latest data:', error);
+                    document.getElementById('statusIndicator').style.background = '#e74c3c';
+                    document.getElementById('lastUpdate').textContent = 'Connection error';
+                });
+        }
+
+        // Update historical charts
+        function updateCharts(hours = 6) {
+            fetch(`/api/historical/${hours}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Historical data received:', data);
+
+                    if (data.timestamps && data.timestamps.length > 0) {
+                        const labels = data.timestamps.map(ts => new Date(ts));
+
+                        temperatureChart.data.labels = labels;
+                        temperatureChart.data.datasets[0].data = data.temperature;
+                        temperatureChart.update();
+
+                        humidityChart.data.labels = labels;
+                        humidityChart.data.datasets[0].data = data.humidity;
+                        humidityChart.update();
+
+                        pressureChart.data.labels = labels;
+                        pressureChart.data.datasets[0].data = data.pressure;
+                        pressureChart.update();
+
+                        windChart.data.labels = labels;
+                        windChart.data.datasets[0].data = data.windspeed;
+                        windChart.update();
+                    } else {
+                        console.log('No historical data available');
+                        // Clear charts if no data
+                        [temperatureChart, humidityChart, pressureChart, windChart].forEach(chart => {
+                            chart.data.labels = [];
+                            chart.data.datasets[0].data = [];
+                            chart.update();
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching historical data:', error);
+                });
+        }
+
+        // Update allsky image
+        function updateAllskyImage() {
+            const img = document.getElementById('allskyImage');
+            const timestamp = new Date().getTime();
+
+            // Create a new image to test if it loads
+            const testImg = new Image();
+            testImg.onload = function() {
+                img.src = `/allsky?t=${timestamp}`;
+                console.log('AllSky image updated successfully');
+            };
+            testImg.onerror = function() {
+                console.error('AllSky image failed to load');
+                img.alt = 'AllSky image not available';
+            };
+            testImg.src = `/allsky?t=${timestamp}`;
+        }
+
+        // Time selector event handlers
+        document.querySelectorAll('.time-selector').forEach(button => {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.time-selector').forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+
+                const hours = parseInt(this.dataset.hours);
+                currentTimeRange = hours;
+                updateCharts(hours);
+            });
+        });
+
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', function() {
+            initCharts();
+            updateLatestData();
+            updateCharts(currentTimeRange);
+            updateAllskyImage();
+
+            // Set up periodic updates
+            setInterval(updateLatestData, 300); // Update every 30 seconds
+            setInterval(() => updateCharts(currentTimeRange), 3000); // Update charts every 5 minutes
+            setInterval(updateAllskyImage, 60000); // Update allsky image every minute
+        });
+    </script>
+</body>
+</html>
