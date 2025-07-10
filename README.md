@@ -1,2 +1,0 @@
-# rotse-environment-monitor
-

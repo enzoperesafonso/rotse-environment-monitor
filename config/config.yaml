@@ -1,0 +1,25 @@
+# Weather Station Collector Configuration
+serial:
+  port: '/dev/tty.usbmodem1101'  # Adjust based on your setup
+  baudrate: 9600
+  timeout: 5
+
+influxdb:
+  url: 'http://weather.local:8086'
+  token: 'your-influxdb-token-here'  # Replace with your actual token
+  org: 'rotse-test'
+  bucket: 'weather'
+
+logging:
+  level: 'INFO'  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_file: '/var/log/weather-collector.log'
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
+
+data:
+  # Location tag for InfluxDB
+  location: 'default'
+  # How often to attempt reconnection on failure (seconds)
+  reconnect_interval: 5
+  # CPU usage throttle (seconds)
+  loop_delay: 0.1
