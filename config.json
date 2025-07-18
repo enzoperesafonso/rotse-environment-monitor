@@ -1,0 +1,26 @@
+{
+  "serial_port": "/dev/ttyACM0",
+  "baud_rate": 9600,
+  "serial_timeout": 1.0,
+  "read_interval": 5.0,
+
+  "influxdb": {
+    "url": "http://put-rotse-server-ip-here:8086",
+    "token": "your-influxdb-token-here",
+    "org": "your-org-name",
+    "bucket": "weather-data"
+  },
+
+  "measurement_name": "weather_data",
+  "location_tag": "outdoor",
+
+  "max_serial_retries": 10,
+  "max_influx_retries": 20,
+  "serial_retry_delay": 5,
+  "influx_retry_delay": 30,
+  "watchdog_timeout": 300,
+  "data_timeout": 600,
+  "health_check_interval": 60,
+  "queue_flush_interval": 10,
+  "restart_on_hang": true
+}
