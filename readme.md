@@ -1,18 +1,6 @@
 # Weather Daemon for Pi Pico to InfluxDB2
 
-A robust Python daemon that reads weather data from a Raspberry Pi Pico via serial connection and sends it to an InfluxDB2 database. **Designed for remote weather stations** with comprehensive error handling, retry mechanisms, and resilience features.
-
-## Features
-
-- **Robust Error Handling**: Automatically retries failed connections and operations
-- **Data Buffering**: Queues data when network is unavailable, sends when reconnected
-- **Watchdog Monitoring**: Detects hangs and automatically restarts if needed
-- **Serial Auto-Recovery**: Automatically reconnects to Pi Pico if connection is lost
-- **InfluxDB Resilience**: Handles network outages and database unavailability
-- **Background Processing**: Multi-threaded design for better reliability
-- **Comprehensive Logging**: Detailed logs for remote debugging
-- **Systemd Integration**: Automatic startup and restart on failure
-- **Remote Station Ready**: Built specifically for unattended operation
+A robust Python daemon that reads weather data from a Raspberry Pi Pico via serial connection and sends it to an InfluxDB2 database.
 
 ## Data Format Support
 
