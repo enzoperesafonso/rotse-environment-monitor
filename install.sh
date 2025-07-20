@@ -25,11 +25,21 @@ fi
 # Install system dependencies
 echo "Installing system dependencies..."
 apt-get update
-apt-get install -y python3-pip python3-venv python3-serial
+apt-get install -y python3-pip python3-venv python3-serial python3-full
 
-# Install Python packages system-wide for now (simpler approach)
-echo "Installing Python packages..."
-pip3 install pyserial influxdb-client
+# Try to install via apt first (preferred method)
+echo "Installing Python packages via apt..."
+apt-get install -y python3-serial python3-requests python3-urllib3 python3-dateutil python3-setuptools
+
+# Check if influxdb-client is available via apt, if not use virtual environment
+echo "Setting up Python environment..."
+if ! python3 -c "import influxdb_client" 2>/dev/null; then
+    echo "InfluxDB client not available via apt, creating virtual environment..."
+    NEED_VENV=true
+else
+    echo "Using system packages"
+    NEED_VENV=false
+fi
 
 # Create dedicated user for the service
 if ! id "$DAEMON_USER" &>/dev/null; then
@@ -48,6 +58,17 @@ mkdir -p "$CONFIG_DIR"
 mkdir -p "$LOG_DIR"
 mkdir -p "$INSTALL_DIR"
 
+# Set up virtual environment if needed
+if [ "$NEED_VENV" = true ]; then
+    echo "Creating virtual environment for InfluxDB client..."
+    python3 -m venv "$INSTALL_DIR/venv"
+    "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
+    "$INSTALL_DIR/venv/bin/pip" install influxdb-client
+    PYTHON_EXEC="$INSTALL_DIR/venv/bin/python3"
+else
+    PYTHON_EXEC="/usr/bin/python3"
+fi
+
 # Copy daemon script
 echo "Installing daemon script..."
 cp "$SCRIPT_DIR/weather_daemon.py" "$DAEMON_SCRIPT"
@@ -55,7 +76,7 @@ chmod +x "$DAEMON_SCRIPT"
 
 # Create systemd service file
 echo "Installing systemd service..."
-cat > "$SERVICE_FILE" << 'EOF'
+cat > "$SERVICE_FILE" << EOF
 [Unit]
 Description=Weather Station Data Collector
 Documentation=Weather station serial data collector for InfluxDB
@@ -67,7 +88,7 @@ Requires=network.target
 Type=simple
 User=weather
 Group=weather
-ExecStart=/usr/bin/python3 /opt/weather-station/weather_daemon.py
+ExecStart=$PYTHON_EXEC /opt/weather-station/weather_daemon.py
 Restart=always
 RestartSec=10
 KillMode=process
@@ -178,10 +199,28 @@ systemctl enable weather-station.service
 
 # Test Python imports
 echo "Testing Python dependencies..."
-python3 -c "import serial; import influxdb_client; print('✓ Python dependencies OK')" || {
+$PYTHON_EXEC -c "import serial; import influxdb_client; print('✓ Python dependencies OK')" || {
     echo "❌ Python dependency test failed"
-    echo "Try manually installing: sudo pip3 install pyserial influxdb-client"
-    exit 1
+    echo "Trying alternative installation method..."
+
+    if [ "$NEED_VENV" = false ]; then
+        echo "Creating virtual environment as fallback..."
+        python3 -m venv "$INSTALL_DIR/venv"
+        "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
+        "$INSTALL_DIR/venv/bin/pip" install pyserial influxdb-client
+
+        # Update service file to use venv
+        PYTHON_EXEC="$INSTALL_DIR/venv/bin/python3"
+        sed -i "s|ExecStart=.*|ExecStart=$PYTHON_EXEC /opt/weather-station/weather_daemon.py|" "$SERVICE_FILE"
+
+        # Test again
+        $PYTHON_EXEC -c "import serial; import influxdb_client; print('✓ Python dependencies OK with venv')" || {
+            echo "❌ Still failed. You may need to install manually."
+            exit 1
+        }
+    else
+        exit 1
+    fi
 }
 
 echo ""
