@@ -200,9 +200,9 @@ class WeatherDaemon:
         try:
             point = Point(self.measurement_name)
             point.tag("location", self.location_tag)
-            point.field("temperature", weather_data['temperature'])
-            point.field("humidity", weather_data['humidity'])
-            point.field("pressure", weather_data['pressure'])
+            point.field("temp", weather_data['temperature'])
+            point.field("humid", weather_data['humidity'])
+            point.field("press", weather_data['pressure'])
             point.field("wind_speed", weather_data['wind_speed'])
             point.time(timestamp)
 

@@ -25,7 +25,7 @@ sudo apt install -y python3 python3-pip python3-venv
 
 # Create virtual environment
 echo -e "${YELLOW}Creating virtual environment...${NC}"
-python3 -m venv /opt/weather-daemon-venv
+sudo python3 -m venv /opt/weather-daemon-venv
 source /opt/weather-daemon-venv/bin/activate
 
 # Install Python packages
